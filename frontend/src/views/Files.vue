@@ -268,9 +268,9 @@ const handleDownload = (item: DirectoryRecord | FileRecord, isDir: boolean) => {
   let path = item.url
   if (isDir) {
     if (!path.endsWith('/')) path += '/'
-    window.open(ApiUtils.getBundleUrl(conn, path))
+    window.location.href = ApiUtils.getBundleUrl(conn, path)
   } else {
-    window.open(ApiUtils.getDownloadUrl(conn, path))
+    window.location.href = ApiUtils.getDownloadUrl(conn, path)
   }
 }
 
@@ -358,14 +358,14 @@ const isTextFile = (row: FileRecord) => {
 
 const handleFileIconClick = (row: FileRecord) => {
   if (isImage(row)) return // Handled by el-image preview
-  window.location.href = ApiUtils.getDownloadUrl(conn, row.url)
+  window.open(ApiUtils.getFullUrl(conn, row.url))
 }
 
 const handleFileNameClick = (row: FileRecord) => {
   if (isTextFile(row)) {
     router.push({ name: 'Editor', query: { path: row.url } })
   } else {
-    window.open(ApiUtils.getFullUrl(conn, row.url), '_blank')
+    window.location.href = ApiUtils.getFullUrl(conn, row.url)
   }
 }
 
@@ -505,7 +505,7 @@ const getItemName = (url: string) => {
                   lazy 
                   class="w-8 h-8 rounded cursor-pointer bg-gray-50"
                   fit="cover"
-                  :preview-src-list="[ApiUtils.getDownloadUrl(conn, row.url)]"
+                  :preview-src-list="[ApiUtils.getFullUrl(conn, row.url)]"
                   preview-teleported
                   @click.stop
                 >
