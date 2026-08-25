@@ -11,13 +11,9 @@ from typing import TypeVar, Callable, Awaitable
 from functools import wraps, partial
 from uuid import uuid4
 from . import error as lfss_error
-try:
-    # optional dependency for client-side
-    import aiofiles     
-except ImportError:
-    pass
 
 async def copy_file(source: str|pathlib.Path, destination: str|pathlib.Path):
+    import aiofiles     # optional dependency for client-side
     async with aiofiles.open(source, mode='rb') as src:
         async with aiofiles.open(destination, mode='wb') as dest:
             while chunk := await src.read(1024):
@@ -226,11 +222,3 @@ def concurrent_wrap(executor=None):
             return loop.run_until_complete(func(*args, **kwargs))
         return sync_fn          # type: ignore
     return _concurrent_wrap
-
-# https://stackoverflow.com/a/279586/6775765
-def static_vars(**kwargs):
-    def decorate(func):
-        for k in kwargs:
-            setattr(func, k, kwargs[k])
-        return func
-    return decorate

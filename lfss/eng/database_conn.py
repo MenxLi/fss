@@ -19,7 +19,7 @@ from .datatype import (
     )
 from .config import LARGE_BLOB_DIR, CHUNK_SIZE, DIR_CONFIG_FNAME
 from .log import get_logger
-from .utils import hash_credential, debounce_async, static_vars
+from .utils import hash_credential, debounce_async
 from .error import *
 
 ENCODE_DIR_CONFIG_FNAME = urllib.parse.quote(DIR_CONFIG_FNAME)
@@ -830,16 +830,14 @@ async def delayed_log_access(url: str):
         _log_access_queue.append(url)
     await _log_all_access()
 
-@static_vars(
-    prohibited_regex = re.compile(
-            r"^[/_.]",              # start with / or _ or .
-        ),
-    prohibited_part_regex = re.compile(
-        "|".join([
-            r"^\s*\.+\s*$",       # dot path
-            "[{}]".format("".join(re.escape(c) for c in ('/', "\\", "'", '"', "*"))), # prohibited characters
-        ])
-    ),
+_validate_url_prohibited_regex = re.compile(
+        r"^[/_.]",              # start with / or _ or .
+    )
+_validate_url_prohibited_part_regex = re.compile(
+    "|".join([
+        r"^\s*\.+\s*$",       # dot path
+        "[{}]".format("".join(re.escape(c) for c in ('/', "\\", "'", '"', "*"))), # prohibited characters
+    ])
 )
 def validate_url(url: str, utype: Literal['file', 'dir'] = 'file'):
     """ 
@@ -849,7 +847,7 @@ def validate_url(url: str, utype: Literal['file', 'dir'] = 'file'):
     if len(url) > 1024: 
         raise InvalidPathError(f"URL too long: {url}")
 
-    is_valid = validate_url.prohibited_regex.search(url) is None
+    is_valid = _validate_url_prohibited_regex.search(url) is None
     if not is_valid:    # early return, no need to check further
         raise InvalidPathError(f"Invalid URL: {url}")
 
@@ -858,7 +856,7 @@ def validate_url(url: str, utype: Literal['file', 'dir'] = 'file'):
         if i != len(url_sp) - 1 and part == '':
             is_valid = False
             break
-        if validate_url.prohibited_part_regex.search(urllib.parse.unquote(part)):
+        if _validate_url_prohibited_part_regex.search(urllib.parse.unquote(part)):
             is_valid = False
             break
 

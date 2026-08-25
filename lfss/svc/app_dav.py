@@ -11,7 +11,7 @@ from ..eng.error import *
 from ..eng.config import DATA_HOME, DEBUG_MODE
 from ..eng.datatype import UserRecord, FileRecord, DirectoryRecord, AccessLevel
 from ..eng.database import FileConn, UserConn, check_path_permission
-from ..eng.utils import ensure_uri_components, decode_uri_components, format_last_modified, static_vars
+from ..eng.utils import ensure_uri_components, decode_uri_components, format_last_modified
 from .app_base import *
 from .common_impl import copy_impl
 
@@ -335,9 +335,10 @@ async def dav_copy(request: Request, path: str, user: UserRecord = Depends(regis
     logger.info(f"COPY {path} -> {destination}")
     return await copy_impl(op_user=user, src_path=lfss_path, dst_path=dlfss_path)
 
+_dav_lock = asyncio.Lock()
+
 @router_dav.api_route("/{path:path}", methods=["LOCK"])
 @handle_exception
-@static_vars(lock = asyncio.Lock())
 async def dav_lock(request: Request, path: str, user: UserRecord = Depends(registered_user), body: ET.Element = Depends(xml_request_body)):
     raw_timeout = request.headers.get("Timeout", "Second-3600")
     if raw_timeout == "Infinite": timeout = -1
@@ -354,7 +355,7 @@ async def dav_lock(request: Request, path: str, user: UserRecord = Depends(regis
     logger.info(f"LOCK {path} (timeout: {timeout}), token: {lock_token}, depth: {lock_depth}")
     if DEBUG_MODE and body:
         print("Lock-body:", ET.tostring(body, encoding="utf-8", method="xml"))
-    async with dav_lock.lock:
+    async with _dav_lock:
         await lock_path(user, path, lock_token, lock_depth, timeout=timeout)
         response_elem = ET.Element(f"{{{DAV_NS}}}prop")
         lockdiscovery = ET.SubElement(response_elem, f"{{{DAV_NS}}}lockdiscovery")
