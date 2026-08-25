@@ -13,7 +13,7 @@ from .connection_pool import transaction, unique_cursor, execute_sql, Transactio
 from .database_conn import FileConn, UserConn, validate_url, remove_external_blob
 from .datatype import FileRecord, UserRecord, FileReadPermission, AccessLevel
 from .permission import check_path_permission, check_file_read_permission
-from .utils import concurrent_wrap, decode_uri_components
+from .utils import concurrent_wrap, decode_uri_components, g_debounce_tasks
 from .error import *
 
 class DeferredFileTrash(TransactionHookBase):
@@ -37,7 +37,8 @@ class DeferredFileTrash(TransactionHookBase):
 
     @override
     async def on_commit(self):  # defer deletion to not block the transaction
-        asyncio.create_task(self.run_deletion())
+        # register the task so that the shutdown path (wait_for_debounce_tasks) awaits it
+        g_debounce_tasks.push(asyncio.create_task(self.run_deletion()))
 
 
 async def get_user(cur: aiosqlite.Cursor, user: int | str) -> Optional[UserRecord]:
@@ -80,6 +81,7 @@ class Database:
         Save a file to the database. 
         Will check file size and user storage limit, 
         should check permission before calling this method. 
+        The upload is rejected if size exceeds the user's storage limit.
         """
         validate_url(url)
         async with unique_cursor() as cur:
@@ -89,17 +91,24 @@ class Database:
             if await check_path_permission(url, user, cursor=cur) < AccessLevel.WRITE:
                 raise PermissionDeniedError(f"Permission denied: {user.username} cannot write to {url}")
             
+            # snapshot of used size (on a read cursor), used for the early rejection cap below;
+            # the authoritative check is re-done inside the write transaction.
             fconn_r = FileConn(cur)
             user_size_used = await fconn_r.user_size(user.id)
 
             f_id = uuid.uuid4().hex
 
+        # reject early if the upload would exceed the quota, so we don't
+        # buffer the entire body before failing
+        upload_cap = max(user.max_storage - user_size_used, 0)
+
+        file_size = 0
         async with aiofiles.tempfile.SpooledTemporaryFile(max_size=MAX_MEM_FILE_BYTES) as f:
             async for chunk in blob_stream:
+                file_size += len(chunk)
+                if file_size > upload_cap:
+                    raise StorageExceededError(f"Unable to save file, user {user.username} has storage limit of {user.max_storage}, used at least {user_size_used}, upload rejected at {file_size} bytes")
                 await f.write(chunk)
-            file_size = await f.tell()
-            if user_size_used + file_size > user.max_storage:
-                raise StorageExceededError(f"Unable to save file, user {user.username} has storage limit of {user.max_storage}, used {user_size_used}, requested {file_size}")
             
             # check mime type
             if mime_type is None:
@@ -125,6 +134,10 @@ class Database:
                 blob = await f.read()
                 async with transaction() as w_cur:
                     fconn_w = FileConn(w_cur)
+                    # re-check the quota inside the write transaction (single writer => authoritative)
+                    used_now = await fconn_w.user_size(user.id)
+                    if used_now + file_size > user.max_storage:
+                        raise StorageExceededError(f"Unable to save file, user {user.username} has storage limit of {user.max_storage}, used {used_now}, requested {file_size}")
                     await fconn_w.set_file_blob(f_id, blob)
                     await fconn_w.set_file_record(
                         url, owner_id=user.id, file_id=f_id, file_size=file_size, 
@@ -137,9 +150,16 @@ class Database:
                         chunk = await f.read(CHUNK_SIZE)
                         if not chunk: break
                         yield chunk
+                # write the blob first, if the quota check below fails and the transaction
+                # is rolled back, an orphan blob may remain on disk (lfss-vacuum will clean it)
                 await FileConn.set_file_blob_external(f_id, blob_stream_tempfile())
                 async with transaction() as w_cur:
-                    await FileConn(w_cur).set_file_record(
+                    fconn_w = FileConn(w_cur)
+                    # re-check the quota inside the write transaction (single writer => authoritative)
+                    used_now = await fconn_w.user_size(user.id)
+                    if used_now + file_size > user.max_storage:
+                        raise StorageExceededError(f"Unable to save file, user {user.username} has storage limit of {user.max_storage}, used {used_now}, requested {file_size}")
+                    await fconn_w.set_file_record(
                         url, owner_id=user.id, file_id=f_id, file_size=file_size, 
                         permission=permission, external=True, mime_type=mime_type)
         return file_size

@@ -87,7 +87,13 @@ class SQLiteFileHandler(logging.FileHandler):
             return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created))
         self.acquire()
         try:
-            conn = sqlite3.connect(self._db_file, check_same_thread=False)
+            try:
+                conn = sqlite3.connect(self._db_file, check_same_thread=False)
+            except sqlite3.OperationalError:
+                # the log dir/file may have been removed (e.g. after shutdown),
+                # drop the buffer instead of raising (esp. at atexit)
+                self._buffer.clear()
+                return
             conn.executemany('''
                 INSERT INTO log (created, created_epoch, name, levelname, level, message)
                 VALUES (?, ?, ?, ?, ?, ?)

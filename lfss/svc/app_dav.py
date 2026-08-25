@@ -385,8 +385,7 @@ async def dav_unlock(request: Request, path: str, user: UserRecord = Depends(reg
 @handle_exception
 async def dav_proppatch(request: Request, path: str, user: UserRecord = Depends(registered_user), body: ET.Element = Depends(xml_request_body)):
     # TODO: implement PROPPATCH
-    print("PROPPATCH", path, body)
-    multistatus = ET.Element(f"{{{DAV_NS}}}multistatus")
-    return Response(content=ET.tostring(multistatus, encoding="utf-8", method="xml"), media_type="application/xml", status_code=207)
+    logger.debug(f"PROPPATCH {path} (not implemented)")
+    raise HTTPException(status_code=501, detail="PROPPATCH is not implemented")
 
 __all__ = ["router_dav"]

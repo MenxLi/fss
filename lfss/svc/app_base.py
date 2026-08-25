@@ -102,7 +102,7 @@ app.add_middleware(ByteCountMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=False,   # auth is header/query based, no cookie credentials needed
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -113,6 +113,22 @@ def _safe_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+def _mask_auth_headers(headers: dict) -> str:
+    """ Mask sensitive headers before persisting them to the request log. """
+    masked = {
+        k: ("Bearer ***" if k.lower() == "authorization" and v else v)
+        for k, v in headers.items()
+    }
+    return str(masked)
+
+def _mask_query(query_params) -> str:
+    """ Mask credential query params before persisting them to the request log. """
+    masked = {
+        k: ("***" if k.lower() == "token" else v)
+        for k, v in dict(query_params).items()
+    }
+    return str(masked)
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -139,8 +155,8 @@ async def log_requests(request: Request, call_next):
             path = request.url.path, 
             status = response.status_code, 
             duration = response_time,
-            headers = str(dict(request.headers)), 
-            query = str(dict(request.query_params)), 
+            headers = _mask_auth_headers(dict(request.headers)), 
+            query = _mask_query(dict(request.query_params)), 
             client = str(request.client),
             request_size = getattr(request.state, "request_size_actual", _safe_int(request.headers.get("Content-Length", 0))),
             response_size = getattr(request.state, "response_size_actual", _safe_int(response.headers.get("Content-Length", 0)))
