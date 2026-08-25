@@ -10,24 +10,24 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "element-plus": "^2.13.2",
-    "js-sha256": "^0.11.1",
-    "pinia": "^3.0.4",
+    "element-plus": "^2.14.5",
+    "js-sha256": "^1.0.0",
+    "pinia": "^4.0.3",
     "pinia-plugin-persistedstate": "^4.7.1",
     "uplot": "^1.6.32",
-    "vue": "^3.5.28",
-    "vue-i18n": "^11.2.8",
-    "vue-router": "^5.0.3"
+    "vue": "^3.5.41",
+    "vue-i18n": "^11.4.9",
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.1",
-    "@types/node": "^25.3.0",
-    "@vitejs/plugin-vue": "^6.0.4",
-    "@vue/tsconfig": "^0.8.1",
-    "tailwindcss": "^4.2.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.3.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
-    "vite": "^7.3.1",
-    "vite-plugin-vue-devtools": "^8.0.6",
-    "vue-tsc": "^3.2.5"
+    "vite": "^8.2.2",
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "vue-tsc": "^3.3.11"
   }
 }
