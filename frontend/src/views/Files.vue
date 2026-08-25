@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import type { TableInstance } from 'element-plus'
 import { ApiUtils, permMap } from '@/api'
 import type { DirectoryRecord, FileRecord } from '@/api'
@@ -30,7 +30,8 @@ import {
   formatDateTime,
   getLastFilenameStemRange,
   getLastPathComponentRange,
-  selectInputRange
+  selectInputRange,
+  copyToClipboard
 } from '@/utils'
 
 const route = useRoute()
@@ -158,6 +159,12 @@ const toggleManualPathControls = async () => {
     const input = manualPathInputRef.value?.input as HTMLInputElement | undefined
     input?.focus()
   }
+}
+
+const copyCurrentPath = () => {
+  if (!currentPath.value) return
+  copyToClipboard('/' + currentPath.value)
+  ElMessage.success(t('files.pathCopied'))
 }
 
 const handleSizeChange = (val: number) => {
@@ -425,16 +432,21 @@ const getItemName = (url: string) => {
             <el-button @click="goToManualPath">{{ t('files.goPath') }}</el-button>
           </div>
         </el-collapse-transition>
-        <el-breadcrumb separator="/" class="flex">
-          <el-breadcrumb-item :to="{ path: '/files' }">Root</el-breadcrumb-item>
-          <el-breadcrumb-item 
-            v-for="(part, index) in currentPath.split('/').filter(Boolean)" 
-            :key="index"
-            :to="{ path: '/files/' + currentPath.split('/').filter(Boolean).slice(0, index + 1).join('/') + '/' }"
-          >
-            {{ ApiUtils.decodePath(part) }}
-          </el-breadcrumb-item>
-        </el-breadcrumb>
+        <div class="group flex items-center gap-1 min-w-0">
+          <el-breadcrumb separator="/" :separator-class="'text-xs'" class="text-xs leading-5 min-w-0">
+            <el-breadcrumb-item :to="{ path: '/files' }">Root</el-breadcrumb-item>
+            <el-breadcrumb-item 
+              v-for="(part, index) in currentPath.split('/').filter(Boolean)" 
+              :key="index"
+              :to="{ path: '/files/' + currentPath.split('/').filter(Boolean).slice(0, index + 1).join('/') + '/' }"
+            >
+              <span class="max-w-[10rem] truncate" :title="ApiUtils.decodePath(part)">{{ ApiUtils.decodePath(part) }}</span>
+            </el-breadcrumb-item>
+          </el-breadcrumb>
+          <el-tooltip :content="t('files.copyPath')" placement="top" :disabled="!currentPath">
+            <el-button link :icon="CopyDocument" :disabled="!currentPath" class="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" @click="copyCurrentPath" />
+          </el-tooltip>
+        </div>
       </div>
       <div class="flex gap-2 items-center flex-wrap w-full sm:w-auto sm:justify-end">
         <el-popover

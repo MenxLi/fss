@@ -77,6 +77,8 @@
         "pathNav": "路径",
         "pathPlaceholder": "输入路径（例如 user/docs/）",
         "goPath": "跳转",
+        "copyPath": "复制当前路径",
+        "pathCopied": "路径已复制到剪贴板",
         "newFolder": "新建文件夹",
         "name": "名称",
         "size": "大小",

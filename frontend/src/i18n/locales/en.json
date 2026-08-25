@@ -77,6 +77,8 @@
         "pathNav": "Path",
         "pathPlaceholder": "Enter path (e.g. user/docs/)",
         "goPath": "Go",
+        "copyPath": "Copy current path",
+        "pathCopied": "Path copied to clipboard",
         "newFolder": "New Folder",
         "name": "Name",
         "size": "Size",
